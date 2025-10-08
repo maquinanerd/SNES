@@ -144,6 +144,7 @@ WORDPRESS_CATEGORIES: Dict[str, int] = {
     'outros-esportes': 10,
     'la-liga': 0, # TODO: Substitua 0 pelo ID correto da categoria La Liga
     'Notícias': 1,
+    'noticias': 31,
 }
 
 # --- Sinônimos de Categorias ---

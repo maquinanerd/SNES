@@ -12,7 +12,21 @@ REGLAS DE CONTENIDO Y SEO (NO IGNORAR):
 1.  **Tono de Voz**: Escribe en un tono periodístico directo, objetivo y natural, en español.
 2.  **Sin Fugas de SEO**: NO escribas en el campo `conteudo_final` frases sobre SEO, Yoast, palabra clave, focus keyword, meta description, tags, densidad, LSI o términos similares. Esa información va ÚNICAMENTE a los campos técnicos del JSON. El `conteudo_final` debe ser un texto periodístico puro.
 3.  **Sin Promociones**: NO uses hashtags (#) y evita frases promocionales como "descubre más", "haz clic aquí" o "síguelo aquí".
-4.  **Categorías**: Sugiere hasta 3 categorías basadas en nombres que aparecen claramente en el texto. Para cada una, proporciona el nombre, el grupo (`editorias`, `equipos` o `competiciones`) y la evidencia (un fragmento literal del texto que justifica la elección). No inventes categorías genéricas como "Final" o "Jornada".
+4.  **Categorías Jerárquicas**: Identifica las entidades principales (Ligas, Campeonatos, Equipos, Jugadores) y organízalas jerárquicamente.
+    -   **Estructura**: Para cada categoría, proporciona su `nombre` y, si aplica, el `nombre_pai` (nombre del padre).
+    -   **Lógica**:
+        -   La categoría de nivel superior es generalmente una competición o liga (ej: "LaLiga", "Champions League"). No tendrá `nombre_pai`.
+        -   Un equipo (ej: "Real Madrid") debe tener su liga como `nombre_pai`.
+        -   Un jugador (ej: "Jude Bellingham") debe tener su equipo como `nombre_pai`.
+    -   **Ejemplo**: Si el texto es sobre un gol de Jude Bellingham en un partido de LaLiga, la estructura sería:
+        ```json
+        "categorias": [
+          { "nombre": "LaLiga", "evidence": "..." },
+          { "nombre": "Real Madrid", "nombre_pai": "LaLiga", "evidence": "..." },
+          { "nombre": "Jude Bellingham", "nombre_pai": "Real Madrid", "evidence": "..." }
+        ]
+        ```
+    -   Proporciona también la `evidence` (fragmento del texto) para cada categoría.
 5.  **Tags**: Sugiere hasta 5 tags, que deben ser coherentes con el texto y, preferiblemente, alineadas con las categorías.
 6.  **SEO Keyphrases**:
     -   `focus_keyphrase`: Una frase corta y natural (máx. 60 caracteres) que resuma el tema principal.
@@ -32,7 +46,9 @@ Usa la siguiente estructura JSON para tu respuesta:
   "related_keyphrases": ["variación de la palabra clave", "sinónimo de la keyword", "pregunta relacionada"],
   "slug": "url-amigable-para-el-post",
   "categorias": [
-    { "nombre": "Nombre del Equipo/Competición", "grupo": "equipos", "evidence": "fragmento literal del texto que lo comprueba" }
+    { "nombre": "Nombre de la Liga", "evidence": "fragmento literal del texto que lo comprueba" },
+    { "nombre": "Nombre del Equipo", "nombre_pai": "Nombre de la Liga", "evidence": "fragmento literal del texto que lo comprueba" },
+    { "nombre": "Nombre del Jugador", "nombre_pai": "Nombre del Equipo", "evidence": "fragmento literal del texto que lo comprueba" }
   ],
   "tags_sugeridas": ["tag-1", "tag-2"],
   "image_alt_texts": {

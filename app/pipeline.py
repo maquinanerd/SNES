@@ -348,6 +348,8 @@ def run_pipeline_cycle():
                             logger.warning("Removing '_yoast_news_keywords' from Yoast meta due to permission error.")
                             del yoast_meta['_yoast_news_keywords']
 
+                        logger.info(f"Final categories being sent to payload: {list(final_categories)}") # DEBUG LOG
+
                         post_payload = {
                             'title': title,
                             'slug': rewritten_data.get('slug'),

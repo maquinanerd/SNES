@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import time
 from pathlib import Path 
 from typing import Any, Dict, List, Optional, Tuple, ClassVar
+import re
 
 from .config import AI_API_KEYS, SCHEDULE_CONFIG
 from .exceptions import AIProcessorError, AllKeysFailedError
@@ -193,6 +194,34 @@ class AIProcessor:
         return None, final_reason
 
     @staticmethod
+    def _robust_json_loads(json_string: str) -> Optional[Dict[str, Any]]:
+        """
+        Tries to parse a JSON string that might be slightly malformed.
+        """
+        try:
+            return json.loads(json_string)
+        except json.JSONDecodeError as e:
+            logger.warning(f"Initial JSON parsing failed: {e}. Attempting to fix...")
+            
+            # 1. Attempt to fix trailing commas
+            fixed_string = re.sub(r",\s*([\}\]])", r"\1", json_string)
+            
+            # 2. Attempt to fix unclosed objects/arrays (very basic)
+            open_brackets = fixed_string.count('{') - fixed_string.count('}')
+            open_sq_brackets = fixed_string.count('[') - fixed_string.count(']')
+
+            for _ in range(open_brackets):
+                fixed_string += '}'
+            for _ in range(open_sq_brackets):
+                fixed_string += ']'
+
+            try:
+                return json.loads(fixed_string)
+            except json.JSONDecodeError as e2:
+                logger.error(f"Robust JSON parsing also failed: {e2}")
+                return None
+
+    @staticmethod
     def _parse_response(text: str) -> Optional[Dict[str, Any]]:
         """
         Parses the JSON response from the AI and validates its structure.
@@ -211,7 +240,7 @@ class AIProcessor:
             with open(debug_dir / f"ai_response_{timestamp}.json", "w", encoding="utf-8") as f:
                 f.write(clean_text)
 
-            data = json.loads(clean_text)
+            data = AIProcessor._robust_json_loads(clean_text)
 
             if not isinstance(data, dict):
                 logger.error(f"AI response is not a dictionary. Received type: {type(data)}")
@@ -248,10 +277,6 @@ class AIProcessor:
             logger.info("Successfully parsed and validated AI response.")
             return data
 
-        except json.JSONDecodeError as e:
-            logger.error(f"Error decoding JSON from AI response: {e}")
-            logger.debug(f"Received text: {text[:500]}...")
-            return None
         except Exception as e:
             logger.error(f"An unexpected error occurred while parsing AI response: {e}")
             logger.debug(f"Received text: {text[:500]}...")

@@ -34,11 +34,54 @@ class WordPressClient:
 
         self.user = config.get('user')
         self.password = config.get('password')
-        self.categories_map = categories_map
+        
         self.session = requests.Session()
         if self.user and self.password:
             self.session.auth = (self.user, self.password)
         self.session.headers.update({'User-Agent': 'VocMoney-Pipeline/1.0'})
+
+        # Start with the static map from config, ensuring keys are lowercase
+        self.categories_map = {k.lower(): v for k, v in categories_map.items()}
+        logger.info("Loading all WordPress categories for caching...")
+        
+        # Augment with all categories from the WP site
+        self.categories_map.update(self._fetch_all_categories())
+
+    def _fetch_all_categories(self) -> Dict[str, int]:
+        """Fetches all categories from WordPress and returns a name -> id map."""
+        all_categories = {}
+        page = 1
+        per_page = 100
+        endpoint = f"{self.api_url}/categories"
+        
+        while True:
+            params = {
+                "per_page": per_page,
+                "page": page,
+                "orderby": "count",
+                "order": "desc",
+                "_fields": "id,name,slug"
+            }
+            try:
+                r = self.session.get(endpoint, params=params, timeout=30)
+                r.raise_for_status()
+                categories = r.json()
+                if not categories:
+                    break
+                
+                for cat in categories:
+                    all_categories[cat['name'].lower()] = cat['id']
+                    all_categories[cat['slug']] = cat['id']
+                
+                if len(categories) < per_page:
+                    break
+                page += 1
+            except requests.RequestException as e:
+                logger.error(f"Error fetching categories (page {page}): {e}")
+                break
+        
+        logger.info(f"Fetched {len(all_categories)} category mappings from WordPress.")
+        return all_categories
 
     def get_domain(self) -> str:
         """Extracts the domain from the WordPress URL."""
@@ -175,33 +218,38 @@ class WordPressClient:
         return None
 
     def resolve_category_names_to_ids(self, category_names: List[str]) -> List[int]:
-        """Converts a list of category names into a list of integer IDs, creating categories if necessary."""
+        """
+        Converts a list of category names into a list of integer IDs.
+        It uses a pre-loaded cache of categories and creates any that are missing.
+        """
         if not category_names:
             return []
 
-        # Deduplicate while preserving order (for logging)
         cleaned_names = list(dict.fromkeys([name.strip() for name in category_names if name.strip() and len(name) >= 1]))
         
         cat_ids: List[int] = []
         for name in cleaned_names:
-            # Check local map first (from config)
-            cat_id = self.categories_map.get(name)
-            if not cat_id:
-                # Case-insensitive check on local map
-                for map_name, map_id in self.categories_map.items():
-                    if map_name.lower() == name.lower():
-                        cat_id = map_id
-                        break
+            slug = _slugify(name)
+            # Check cache by name (lower) or slug
+            cat_id = self.categories_map.get(name.lower()) or self.categories_map.get(slug)
             
-            # If not in local map, query WordPress
+            # If not in cache, it needs to be created
             if not cat_id:
-                cat_id = self._get_existing_category_id(name) or self._create_category(name)
+                logger.info(f"Category '{name}' not found in cache, attempting to create.")
+                cat_id = self._create_category(name)
+                if cat_id:
+                    # Add to cache for this run to avoid re-creating in the same cycle
+                    logger.info(f"Adding newly created category '{name}' (ID: {cat_id}) to cache.")
+                    self.categories_map[name.lower()] = cat_id
+                    self.categories_map[slug] = cat_id
 
             if cat_id:
                 cat_ids.append(cat_id)
         
-        logger.info(f"Resolved category names {cleaned_names} to IDs: {cat_ids}")
-        return cat_ids
+        # Remove duplicates before returning
+        final_ids = list(set(cat_ids))
+        logger.info(f"Resolved category names {cleaned_names} to IDs: {final_ids}")
+        return final_ids
 
     def upload_media_from_url(self, image_url: str, alt_text: str = "", max_attempts: int = 3) -> Optional[Dict[str, Any]]:
         """

@@ -142,7 +142,6 @@ WORDPRESS_CATEGORIES: Dict[str, int] = {
     'futebol': 8,
     'futebol-internacional': 9,
     'outros-esportes': 10,
-    'Notícias': 1,
     'noticias': 31,
 }
 

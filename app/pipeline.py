@@ -292,8 +292,11 @@ def run_pipeline_cycle():
                             if suggested_names != normalized_names:
                                 logger.info(f"Normalized category names for payload: {suggested_names} -> {normalized_names}")
                             
-                            # Add the names to the set for resolution inside create_post
-                            final_categories.update(normalized_names)
+                            # Add the names to the set for resolution inside create_post (VERBOSE LOGGING)
+                            logger.info(f"Attempting to add {len(normalized_names)} AI-suggested category names to the set.")
+                            for cat_name in normalized_names:
+                                logger.info(f"Adding '{cat_name}' to final_categories set.")
+                                final_categories.add(cat_name)
 
                         # Step 4: Add internal links (now in the correct place)
                         if link_map:

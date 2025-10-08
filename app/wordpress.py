@@ -22,9 +22,16 @@ class WordPressClient:
     """A client for interacting with the WordPress REST API."""
 
     def __init__(self, config: Dict[str, str], categories_map: Dict[str, int]):
-        self.api_url = (config.get('url') or "").rstrip('/')
-        if not self.api_url:
+        base_url = (config.get('url') or "").rstrip('/')
+        if not base_url:
             raise ValueError("WORDPRESS_URL is not configured.")
+        
+        # Ensure the API URL has the correct REST API path
+        if '/wp-json/wp/v2' not in base_url:
+            self.api_url = f"{base_url}/wp-json/wp/v2"
+        else:
+            self.api_url = base_url
+
         self.user = config.get('user')
         self.password = config.get('password')
         self.categories_map = categories_map

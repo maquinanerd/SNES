@@ -1,0 +1,50 @@
+{
+  "titulo_final": "Betis y Sevilla reciben sanciones: 15 días a Fajardo y 2 partidos a Bonini",
+  "conteudo_final": "<p>El Comité de Disciplina de la Real Federación Española de Fútbol (RFEF) ha emitido sanciones para dos figuras importantes del fútbol español. Manu Fajardo, director deportivo del <b>Real Betis Balompié</b>, ha sido suspendido por 15 días debido a su comportamiento al finalizar el encuentro contra el Espanyol. Adicionalmente, Guido Bonini, preparador físico del <b>Sevilla FC</b>, recibió una sanción de dos partidos por protestar al árbitro.</p><h2>Sanción a Manu Fajardo del Betis</h2><p>La RFEF detalló que la suspensión de Manu Fajardo se debe a \"actitudes de menosprecio o desconsideración hacia los árbitros/as, directivos/as o autoridades deportivas\", amparándose en el Artículo 124 de su Código Disciplinario. Esta sanción implica una prohibición de 15 días de actividad oficial, junto con multas accesorias.</p><h2>Dos partidos para Guido Bonini del Sevilla</h2><p>Por su parte, Guido Bonini, preparador físico del Sevilla, enfrentará una suspensión de dos encuentros. La sanción responde a \"protestas al árbitro, principal, asistente o cuarto árbitro\", según el Artículo 127 del Código Disciplinario. La infracción ocurrió durante el partido en el que el Sevilla venció al Barcelona por 4-1.</p>",
+  "meta_description": "Sanciones en el fútbol español: Manu Fajardo del Betis recibe 15 días de suspensión y Guido Bonini del Sevilla, dos partidos.",
+  "focus_keyphrase": "Sanciones Betis y Sevilla",
+  "related_keyphrases": [
+    "Comité de Disciplina RFEF",
+    "Manu Fajardo sancionado",
+    "Guido Bonini amonestado"
+  ],
+  "slug": "sanciones-betis-sevilla-directivos",
+  "categorias": [
+    {
+      "nombre": "LaLiga",
+      "evidence": "Real Betis Balompié"
+    },
+    {
+      "nombre": "Real Betis Balompié",
+      "nombre_pai": "LaLiga",
+      "evidence": "director deportivo del Betis"
+    },
+    {
+      "nombre": "Sevilla FC",
+      "nombre_pai": "LaLiga",
+      "evidence": "preparador físico del Sevilla"
+    }
+  ],
+  "tags_sugeridas": [
+    "RFEF",
+    "Betis",
+    "Sevilla FC",
+    "Manu Fajardo",
+    "Guido Bonini",
+    "LaLiga",
+    "Comité de Disciplina"
+  ],
+  "image_alt_texts": {
+    "imagen_principal.jpg": "Manu Fajardo del Betis y Guido Bonini del Sevilla, directivos sancionados por la RFEF."
+  },
+  "yoast_meta": {
+    "_yoast_wpseo_title": "Betis y Sevilla reciben sanciones: 15 días a Fajardo y 2 partidos a Bonini",
+    "_yoast_wpseo_metadesc": "Sanciones en el fútbol español: Manu Fajardo del Betis recibe 15 días de suspensión y Guido Bonini del Sevilla, dos partidos.",
+    "_yoast_wpseo_focuskw": "Sanciones Betis y Sevilla",
+    "_yoast_news_keywords": "Betis, Sevilla, RFEF, Manu Fajardo, Guido Bonini, LaLiga, Comité de Disciplina",
+    "_yoast_wpseo_opengraph-title": "Betis y Sevilla reciben sanciones: 15 días a Fajardo y 2 partidos a Bonini",
+    "_yoast_wpseo_opengraph-description": "El Comité de Disciplina de la RFEF ha sancionado a Manu Fajardo, director deportivo del Betis, con 15 días y a Guido Bonini, preparador físico del Sevilla, con dos partidos.",
+    "_yoast_wpseo_twitter-title": "Betis y Sevilla reciben sanciones: 15 días a Fajardo y 2 partidos a Bonini",
+    "_yoast_wpseo_twitter-description": "El Comité de Disciplina de la RFEF ha sancionado a Manu Fajardo, director deportivo del Betis, con 15 días y a Guido Bonini, preparador físico del Sevilla, con dos partidos."
+  }
+}

@@ -275,9 +275,27 @@ class WordPressClient:
     def create_post(self, payload: Dict[str, Any]) -> Optional[int]:
         """Creates a new post in WordPress."""
         try:
-            # Resolve tag names to integer IDs before sending
+            # Resolve tag names to integer IDs
             if 'tags' in payload and payload['tags']:
                 payload['tags'] = self._ensure_tag_ids(payload['tags'])
+
+            # Resolve category names to integer IDs
+            if 'categories' in payload and payload['categories']:
+                # Ensure categories are in list format, even if a single int/str is provided
+                cat_input = payload['categories']
+                if isinstance(cat_input, (int, str)):
+                    cat_input = [cat_input]
+                
+                # Convert names to IDs
+                category_names = [str(c) for c in cat_input if isinstance(c, str) and not c.isdigit()]
+                category_ids = [int(c) for c in cat_input if isinstance(c, int) or (isinstance(c, str) and c.isdigit())]
+                
+                if category_names:
+                    resolved_ids = self.resolve_category_names_to_ids(category_names)
+                    category_ids.extend(resolved_ids)
+                
+                # Remove duplicates and assign back to payload
+                payload['categories'] = list(set(category_ids))
 
             posts_endpoint = f"{self.api_url}/posts"
             payload.setdefault('status', 'publish')

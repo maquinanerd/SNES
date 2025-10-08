@@ -40,48 +40,8 @@ class WordPressClient:
             self.session.auth = (self.user, self.password)
         self.session.headers.update({'User-Agent': 'VocMoney-Pipeline/1.0'})
 
-        # Start with the static map from config, ensuring keys are lowercase
         self.categories_map = {k.lower(): v for k, v in categories_map.items()}
-        logger.info("Loading all WordPress categories for caching...")
-        
-        # Augment with all categories from the WP site
-        self.categories_map.update(self._fetch_all_categories())
-
-    def _fetch_all_categories(self) -> Dict[str, int]:
-        """Fetches all categories from WordPress and returns a name -> id map."""
-        all_categories = {}
-        page = 1
-        per_page = 100
-        endpoint = f"{self.api_url}/categories"
-        
-        while True:
-            params = {
-                "per_page": per_page,
-                "page": page,
-                "orderby": "count",
-                "order": "desc",
-                "_fields": "id,name,slug"
-            }
-            try:
-                r = self.session.get(endpoint, params=params, timeout=30)
-                r.raise_for_status()
-                categories = r.json()
-                if not categories:
-                    break
-                
-                for cat in categories:
-                    all_categories[cat['name'].lower()] = cat['id']
-                    all_categories[cat['slug']] = cat['id']
-                
-                if len(categories) < per_page:
-                    break
-                page += 1
-            except requests.RequestException as e:
-                logger.error(f"Error fetching categories (page {page}): {e}")
-                break
-        
-        logger.info(f"Fetched {len(all_categories)} category mappings from WordPress.")
-        return all_categories
+        logger.info("WordPress client initialized.")
 
     def get_domain(self) -> str:
         """Extracts the domain from the WordPress URL."""
@@ -167,89 +127,50 @@ class WordPressClient:
         logger.info(f"Resolved tags {tags} to IDs: {tag_ids}")
         return tag_ids
 
-    def _get_existing_category_id(self, name: str) -> Optional[int]:
-        """Searches for an existing category by name or slug and returns its ID."""
-        slug = _slugify(name)
-        endpoint = f"{self.api_url}/categories"
-        # WordPress category search is not as reliable as tag search, so we get more results and filter
-        params = {"search": name, "per_page": 100}
-
-        try:
-            r = self.session.get(endpoint, params=params, timeout=20)
+    def _list_categories_es(self) -> dict[str,int]:
+        by_name, page = {}, 1
+        while True:
+            r = self.session.get(f"{self.api_url}/categories",
+                                 params={"per_page":100, "page":page, "_fields":"id,name"},
+                                 timeout=30)
             r.raise_for_status()
             items = r.json()
-            
-            # Exact match on name (case-insensitive)
-            for item in items:
-                if item.get('name', '').strip().lower() == name.strip().lower():
-                    return int(item['id'])
-            # Match on slug
-            for item in items:
-                if item.get('slug') == slug:
-                    return int(item['id'])
-        except requests.RequestException as e:
-            logger.error(f"Error searching for category '{name}': {e}")
-        
+            if not items: break
+            for c in items:
+                by_name[c["name"].strip().lower()] = int(c["id"])
+            if len(items) < 100: break
+            page += 1
+        return by_name
+
+    def _create_category_es(self, name: str) -> int | None:
+        r = self.session.post(f"{self.api_url}/categories", json={"name": name}, timeout=30)
+        if r.status_code in (200,201):
+            return int(r.json()["id"])
+        if r.status_code == 400 and isinstance(r.json(), dict) and r.json().get("code") == "term_exists":
+            q = self.session.get(f"{self.api_url}/categories",
+                                 params={"search": name, "per_page":100, "_fields":"id,name"},
+                                 timeout=30)
+            q.raise_for_status()
+            for c in q.json():
+                if c["name"].strip().lower() == name.strip().lower():
+                    return int(c["id"])
+        r.raise_for_status()
         return None
 
-    def _create_category(self, name: str) -> Optional[int]:
-        """Creates a new category and returns its ID."""
-        endpoint = f"{self.api_url}/categories"
-        payload = {"name": name, "slug": _slugify(name)}
-        
-        try:
-            r = self.session.post(endpoint, json=payload, timeout=20)
-            
-            if r.status_code in (200, 201):
-                cat_id = int(r.json()['id'])
-                logger.info(f"Created new category '{name}' with ID {cat_id}.")
-                return cat_id
-            
-            if r.status_code == 400 and isinstance(r.json(), dict) and r.json().get("code") == "term_exists":
-                logger.warning(f"Category '{name}' already exists (race condition). Re-fetching ID.")
-                return self._get_existing_category_id(name)
-            
-            r.raise_for_status()
-        except requests.RequestException as e:
-            logger.error(f"Error creating category '{name}': {e}")
-            if e.response is not None:
-                logger.error(f"Response body: {e.response.text}")
-
-        return None
-
-    def resolve_category_names_to_ids(self, category_names: List[str]) -> List[int]:
-        """
-        Converts a list of category names into a list of integer IDs.
-        It uses a pre-loaded cache of categories and creates any that are missing.
-        """
-        if not category_names:
-            return []
-
-        cleaned_names = list(dict.fromkeys([name.strip() for name in category_names if name.strip() and len(name) >= 1]))
-        
-        cat_ids: List[int] = []
-        for name in cleaned_names:
-            slug = _slugify(name)
-            # Check cache by name (lower) or slug
-            cat_id = self.categories_map.get(name.lower()) or self.categories_map.get(slug)
-            
-            # If not in cache, it needs to be created
-            if not cat_id:
-                logger.info(f"Category '{name}' not found in cache, attempting to create.")
-                cat_id = self._create_category(name)
-                if cat_id:
-                    # Add to cache for this run to avoid re-creating in the same cycle
-                    logger.info(f"Adding newly created category '{name}' (ID: {cat_id}) to cache.")
-                    self.categories_map[name.lower()] = cat_id
-                    self.categories_map[slug] = cat_id
-
-            if cat_id:
-                cat_ids.append(cat_id)
-        
-        # Remove duplicates before returning
-        final_ids = list(set(cat_ids))
-        logger.info(f"Resolved category names {cleaned_names} to IDs: {final_ids}")
-        return final_ids
+    def resolve_category_names_to_ids(self, names: list[str]) -> list[int]:
+        names = list(dict.fromkeys([n.strip() for n in names if n and n.strip()]))
+        existing = self._list_categories_es()
+        ids = []
+        for n in names:
+            key = n.lower()
+            if key in existing:
+                ids.append(existing[key])
+            else:
+                new_id = self._create_category_es(n)
+                if new_id:
+                    ids.append(new_id)
+                    existing[key] = new_id
+        return ids
 
     def upload_media_from_url(self, image_url: str, alt_text: str = "", max_attempts: int = 3) -> Optional[Dict[str, Any]]:
         """
@@ -467,53 +388,6 @@ class WordPressClient:
         
         logger.info(f"Successfully mapped {len(tag_map)} tag IDs to names.")
         return tag_map
-
-    def test_category_creation(self) -> (bool, str):
-        """
-        Tests if the client can create and then delete a category.
-        Returns a tuple of (success: bool, message: str).
-        """
-        test_cat_name = f"Test Categoria {int(time.time())}"
-        test_cat_id = None
-        logger.info(f"--- Iniciando teste de criação de categoria: '{test_cat_name}' ---")
-
-        # 1. Tentar criar a categoria
-        try:
-            logger.info(f"Passo 1: Tentando criar a categoria '{test_cat_name}'...")
-            test_cat_id = self._create_category(test_cat_name)
-            if not test_cat_id:
-                msg = "FALHA: A função _create_category não retornou um ID. Verifique os logs para erros de requisição."
-                logger.error(msg)
-                return False, msg
-            
-            logger.info(f"SUCESSO: Categoria '{test_cat_name}' criada com ID: {test_cat_id}.")
-        except Exception as e:
-            msg = f"FALHA: Exceção durante a criação da categoria: {e}"
-            logger.error(msg, exc_info=True)
-            return False, msg
-
-        # 2. Tentar deletar a categoria
-        try:
-            logger.info(f"Passo 2: Tentando deletar a categoria de teste (ID: {test_cat_id})...")
-            delete_endpoint = f"{self.api_url}/categories/{test_cat_id}"
-            # O WordPress exige force=true para deletar categorias com posts
-            params = {'force': True}
-            r = self.session.delete(delete_endpoint, params=params, timeout=20)
-
-            if r.status_code == 200 and r.json().get('deleted'):
-                msg = f"SUCESSO: Categoria de teste '{test_cat_name}' deletada com sucesso."
-                logger.info(msg)
-                logger.info("--- Teste de criação de categoria concluído com sucesso. ---")
-                return True, msg
-            else:
-                r.raise_for_status() # Forçar exceção se o status não for OK
-        except requests.RequestException as e:
-            msg = f"FALHA: Erro ao deletar a categoria de teste. Resposta: {e.response.text if e.response else 'N/A'}"
-            logger.error(msg)
-            logger.error("--- Teste de criação de categoria FALHOU. A categoria de teste pode ter ficado no seu site. ---")
-            return False, msg
-        
-        return False, "FALHA: Ocorreu um erro inesperado no final do teste."
 
     def close(self):
         """Closes the requests session."""

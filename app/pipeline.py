@@ -92,6 +92,20 @@ def is_valid_upload_candidate(url: str) -> bool:
         return False
 
 
+def _extract_ai_cat_names(ai_result: dict) -> list[str]:
+    raw = ai_result.get("categorias") or ai_result.get("categories") or []
+    names = []
+    for c in raw:
+        if isinstance(c, dict):
+            name = (c.get("nombre") or c.get("name") or c.get("categoria") or c.get("category") or "").strip()
+            if name:
+                names.append(name)
+        elif isinstance(c, str) and c.strip():
+            names.append(c.strip())
+    # únicos, mantém ordem
+    return list(dict.fromkeys(names))
+
+
 def run_pipeline_cycle():
     """Executes a full cycle of the content processing pipeline."""
     logger.info("Starting new pipeline cycle.")
@@ -267,36 +281,30 @@ def run_pipeline_cycle():
 
                         # Step 5: Prepare payload for WordPress
 
-                        # 5.1: Combine fixed and AI-suggested categories
-                        final_categories = set()  # Will contain a mix of IDs and names (strings)
-
-                        # Add fixed IDs from config
-                        final_categories.update({8, 267})  # Futebol, Notícias
-
-                        # Add category from feed config (as ID)
+                        # 5.1: Resolve categories
+                        default_cat_ids = {8, 267}  # Futebol, Notícias
                         main_category_id = WORDPRESS_CATEGORIES.get(category)
                         if main_category_id:
-                            final_categories.add(main_category_id)
+                            default_cat_ids.add(main_category_id)
 
-                        # Get AI suggested categories (as NAMES)
-                        suggested_categories = rewritten_data.get('categorias', [])
-                        if suggested_categories and isinstance(suggested_categories, list):
-                            suggested_names = [cat['nome'] for cat in suggested_categories if isinstance(cat, dict) and 'nome' in cat]
-                            
-                            # Normalize category names using aliases
-                            normalized_names = []
-                            for name in suggested_names:
-                                canonical_name = CATEGORY_ALIASES.get(name.lower(), name)
-                                normalized_names.append(canonical_name)
-                            
-                            if suggested_names != normalized_names:
-                                logger.info(f"Normalized category names for payload: {suggested_names} -> {normalized_names}")
-                            
-                            # Add the names to the set for resolution inside create_post (VERBOSE LOGGING)
-                            logger.info(f"Attempting to add {len(normalized_names)} AI-suggested category names to the set.")
-                            for cat_name in normalized_names:
-                                logger.info(f"Adding '{cat_name}' to final_categories set.")
-                                final_categories.add(cat_name)
+                        ai_cat_names = _extract_ai_cat_names(rewritten_data)
+                        logger.info(f"AI suggested category names: {ai_cat_names}")
+
+                        resolved_cat_ids = []
+                        if ai_cat_names:
+                            try:
+                                resolved_cat_ids = wp_client.resolve_category_names_to_ids(ai_cat_names)
+                                logger.info(f"Resolved AI categories to IDs (ES site): {resolved_cat_ids}")
+                            except Exception as e:
+                                logger.error(f"Failed resolving AI categories: {e}")
+
+                        final_category_ids = []
+                        if resolved_cat_ids:
+                            final_category_ids = list(set(resolved_cat_ids) | default_cat_ids)
+                            logger.info(f"Final categories being sent to payload (AI-resolved + defaults): {final_category_ids}")
+                        else:
+                            final_category_ids = list(default_cat_ids)
+                            logger.info(f"Final categories being sent to payload (fallback): {final_category_ids}")
 
                         # Step 4: Add internal links (now in the correct place)
                         if link_map:
@@ -304,7 +312,7 @@ def run_pipeline_cycle():
                             content_html = add_internal_links(
                                 html_content=content_html,
                                 link_map_data=link_map,
-                                current_post_categories=list(final_categories)
+                                current_post_categories=final_category_ids # Use resolved IDs
                             )
 
                         # 5.2: Determine featured media ID to avoid re-upload
@@ -351,14 +359,12 @@ def run_pipeline_cycle():
                             logger.warning("Removing '_yoast_news_keywords' from Yoast meta due to permission error.")
                             del yoast_meta['_yoast_news_keywords']
 
-                        logger.info(f"Final categories being sent to payload: {list(final_categories)}") # DEBUG LOG
-
                         post_payload = {
                             'title': title,
                             'slug': rewritten_data.get('slug'),
                             'content': content_html,
                             'excerpt': rewritten_data.get('meta_description', ''),
-                            'categories': list(final_categories),
+                            'categories': final_category_ids,
                             'tags': rewritten_data.get('tags_sugeridas', []),
                             'featured_media': featured_media_id,
                             'meta': yoast_meta,

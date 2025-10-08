@@ -7,52 +7,81 @@ load_dotenv()
 
 # --- Ordem de processamento dos feeds ---
 PIPELINE_ORDER: List[str] = [
-    'lance',
-    'globo_futebol',
-    'marca',
-    'as_es',
-    'cbs_nfl',
-    'cbs_nba',
-    'the_guardian_official',
+    'as_es_laliga',
+    'as_es_copa',
+    'as_es_laliga_hypermotion',
+    'ole_primera',
+    'ole_ascenso',
+    'as_cl_futbol',
+    'as_co_futbol',
+    'as_mx_futbol',
+    'the_guardian_football',
+    'bbc_football',
+    'fox_sports_nfl',
+    'fox_sports_nba',
 ]
 
-# --- Feeds RSS (padronizados, sem "synthetic_from") ---
+# --- Feeds RSS ---
 RSS_FEEDS: Dict[str, Dict[str, Any]] = {
-    'lance': {
-        'urls': ['https://aprenderpoker.site/feeds/lance/futebol/rss'],
-        'category': 'futebol',
-        'source_name': 'LANCE!',
-        'deny_regex': r'(?i)Onde Assistir',
-    },
-    'globo_futebol': {
-        'urls': ['https://aprenderpoker.site/feeds/ge/futebol/rss'],
-        'category': 'futebol',
-        'source_name': 'Globo Esporte',
-    },
-    'marca': {
-        'urls': ['https://aprenderpoker.site/feeds/marca/futbol/rss'],
-        'category': 'futebol-internacional',
-        'source_name': 'Marca',
-    },
-    'as_es': {
+    'as_es_laliga': {
         'urls': ['https://aprenderpoker.site/feeds/as_es/primera/rss'],
         'category': 'futebol-internacional',
         'source_name': 'AS España',
     },
-    'cbs_nfl': {
-        'urls': ['https://www.cbssports.com/rss/headlines/nfl/'],
-        'category': 'outros-esportes',
-        'source_name': 'CBS Sports',
+    'as_es_copa': {
+        'urls': ['https://aprenderpoker.site/feeds/as_es/copa_del_rey/rss'],
+        'category': 'futebol-internacional',
+        'source_name': 'AS España',
     },
-    'cbs_nba': {
-        'urls': ['https://www.cbssports.com/rss/headlines/nba/'],
-        'category': 'outros-esportes',
-        'source_name': 'CBS Sports',
+    'as_es_laliga_hypermotion': {
+        'urls': ['https://aprenderpoker.site/feeds/as_es/segunda/rss'],
+        'category': 'futebol-internacional',
+        'source_name': 'AS España',
     },
-    'the_guardian_official': {
-        'urls': ['https://www.theguardian.com/football/rss'],
+    'ole_primera': {
+        'urls': ['https://aprenderpoker.site/feeds/ole/primera/rss'],
+        'category': 'futebol-internacional',
+        'source_name': 'Olé',
+    },
+    'ole_ascenso': {
+        'urls': ['https://aprenderpoker.site/feeds/ole/ascenso/rss'],
+        'category': 'futebol-internacional',
+        'source_name': 'Olé',
+    },
+    'as_cl_futbol': {
+        'urls': ['https://aprenderpoker.site/feeds/as_cl/futbol/rss'],
+        'category': 'futebol-internacional',
+        'source_name': 'AS Chile',
+    },
+    'as_co_futbol': {
+        'urls': ['https://aprenderpoker.site/feeds/as_co/futbol/rss'],
+        'category': 'futebol-internacional',
+        'source_name': 'AS Colombia',
+    },
+    'as_mx_futbol': {
+        'urls': ['https://aprenderpoker.site/feeds/as_mx/futbol/rss'],
+        'category': 'futebol-internacional',
+        'source_name': 'AS México',
+    },
+    'the_guardian_football': {
+        'urls': ['https://aprenderpoker.site/feeds/theguardian/football/rss'],
         'category': 'futebol-internacional',
         'source_name': 'The Guardian',
+    },
+    'bbc_football': {
+        'urls': ['https://aprenderpoker.site/feeds/bbc/sport_football/rss'],
+        'category': 'futebol-internacional',
+        'source_name': 'BBC Sport',
+    },
+    'fox_sports_nfl': {
+        'urls': ['https://api.foxsports.com/v2/content/optimized-rss?partnerKey=MB0Wehpmuj2lUhuRhQaafhBjAJqaPU244mlTDK1i&size=30&tags=fs/nfl'],
+        'category': 'outros-esportes',
+        'source_name': 'Fox Sports',
+    },
+    'fox_sports_nba': {
+        'urls': ['https://api.foxsports.com/v2/content/optimized-rss?partnerKey=MB0Wehpmuj2lUhuRhQaafhBjAJqaPU244mlTDK1i&size=30&tags=fs/nba'],
+        'category': 'outros-esportes',
+        'source_name': 'Fox Sports',
     },
 }
 
@@ -73,7 +102,7 @@ def _load_ai_keys() -> List[str]:
         if value and key.startswith('GEMINI_'):
             keys[key] = value
     
-    # Sort by key name for predictable order (e.g., GEMINI_ECONOMIA_1, GEMINI_POLITICA_1)
+    # Sort by key name for predictable order (e.g., GEMINI_KEY_1, GEMINI_KEY_2)
     sorted_key_names = sorted(keys.keys())
     
     return [keys[k] for k in sorted_key_names]
@@ -87,7 +116,7 @@ PROMPT_FILE_PATH = os.path.join(
     'universal_prompt.txt'
 )
 
-AI_MODEL = os.getenv('AI_MODEL', 'gemini-2.5-flash-lite')
+AI_MODEL = os.getenv('AI_MODEL', 'gemini-1.5-flash-latest')
 
 AI_GENERATION_CONFIG = {
     'temperature': 0.7,
@@ -104,10 +133,8 @@ WORDPRESS_CONFIG = {
 
 # --- Posts Pilares para Linkagem Interna ---
 # Adicione aqui as URLs completas dos seus posts mais importantes.
-# A lógica de linkagem interna dará prioridade máxima a links que apontam para estes artigos.
 PILAR_POSTS: List[str] = [
     # Ex: "https://seusite.com/guia-completo-de-futebol",
-    # Ex: "https://seusite.com/historia-das-copas-do-mundo",
 ]
 
 # IDs das categorias no WordPress (ajuste os IDs conforme o seu WP)
@@ -116,12 +143,10 @@ WORDPRESS_CATEGORIES: Dict[str, int] = {
     'futebol-internacional': 9,
     'outros-esportes': 10,
     'la-liga': 0, # TODO: Substitua 0 pelo ID correto da categoria La Liga
-    # Categorias genéricas
     'Notícias': 1,
 }
 
 # --- Sinônimos de Categorias ---
-# Mapeia nomes alternativos (em minúsculas) para o slug canônico em WORDPRESS_CATEGORIES
 CATEGORY_ALIASES: Dict[str, str] = {
     "liga ea sports": "la-liga",
 }
@@ -136,11 +161,11 @@ SCHEDULE_CONFIG = {
 }
 
 PIPELINE_CONFIG = {
-    'images_mode': os.getenv('IMAGES_MODE', 'hotlink'),  # 'hotlink' ou 'download_upload'
+    'images_mode': os.getenv('IMAGES_MODE', 'hotlink'),
     'attribution_policy': 'Fonte: {domain}',
-    'publisher_name': 'VocMoney',
+    'publisher_name': 'The Sport',
     'publisher_logo_url': os.getenv(
         'PUBLISHER_LOGO_URL',
-        'https://exemplo.com/logo.png'  # TODO: atualizar para a URL real do logo
+        'https://exemplo.com/logo.png'
     ),
 }

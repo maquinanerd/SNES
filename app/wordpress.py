@@ -468,6 +468,53 @@ class WordPressClient:
         logger.info(f"Successfully mapped {len(tag_map)} tag IDs to names.")
         return tag_map
 
+    def test_category_creation(self) -> (bool, str):
+        """
+        Tests if the client can create and then delete a category.
+        Returns a tuple of (success: bool, message: str).
+        """
+        test_cat_name = f"Test Categoria {int(time.time())}"
+        test_cat_id = None
+        logger.info(f"--- Iniciando teste de criação de categoria: '{test_cat_name}' ---")
+
+        # 1. Tentar criar a categoria
+        try:
+            logger.info(f"Passo 1: Tentando criar a categoria '{test_cat_name}'...")
+            test_cat_id = self._create_category(test_cat_name)
+            if not test_cat_id:
+                msg = "FALHA: A função _create_category não retornou um ID. Verifique os logs para erros de requisição."
+                logger.error(msg)
+                return False, msg
+            
+            logger.info(f"SUCESSO: Categoria '{test_cat_name}' criada com ID: {test_cat_id}.")
+        except Exception as e:
+            msg = f"FALHA: Exceção durante a criação da categoria: {e}"
+            logger.error(msg, exc_info=True)
+            return False, msg
+
+        # 2. Tentar deletar a categoria
+        try:
+            logger.info(f"Passo 2: Tentando deletar a categoria de teste (ID: {test_cat_id})...")
+            delete_endpoint = f"{self.api_url}/categories/{test_cat_id}"
+            # O WordPress exige force=true para deletar categorias com posts
+            params = {'force': True}
+            r = self.session.delete(delete_endpoint, params=params, timeout=20)
+
+            if r.status_code == 200 and r.json().get('deleted'):
+                msg = f"SUCESSO: Categoria de teste '{test_cat_name}' deletada com sucesso."
+                logger.info(msg)
+                logger.info("--- Teste de criação de categoria concluído com sucesso. ---")
+                return True, msg
+            else:
+                r.raise_for_status() # Forçar exceção se o status não for OK
+        except requests.RequestException as e:
+            msg = f"FALHA: Erro ao deletar a categoria de teste. Resposta: {e.response.text if e.response else 'N/A'}"
+            logger.error(msg)
+            logger.error("--- Teste de criação de categoria FALHOU. A categoria de teste pode ter ficado no seu site. ---")
+            return False, msg
+        
+        return False, "FALHA: Ocorreu um erro inesperado no final do teste."
+
     def close(self):
         """Closes the requests session."""
         self.session.close()

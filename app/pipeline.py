@@ -195,6 +195,10 @@ def run_pipeline_cycle():
                             schema_original=extracted_data.get('schema_original')
                         )
 
+                        # Log the full AI response for debugging
+                        if rewritten_data:
+                            logger.info(f"AI response for {article_url_to_process}: {json.dumps(rewritten_data, indent=2, ensure_ascii=False)}")
+
                         if not rewritten_data:
                             reason = failure_reason or "AI processing failed"
                             # Check for the specific case where the key pool for the category is exhausted
@@ -264,19 +268,19 @@ def run_pipeline_cycle():
                         # Step 5: Prepare payload for WordPress
 
                         # 5.1: Combine fixed and AI-suggested categories
-                        FIXED_CATEGORY_IDS = {8, 267} # Futebol, Notícias
-                        
-                        final_category_ids = set(FIXED_CATEGORY_IDS)
+                        final_categories = set()  # Will contain a mix of IDs and names (strings)
 
-                        # Get category from feed config (the main one)
+                        # Add fixed IDs from config
+                        final_categories.update({8, 267})  # Futebol, Notícias
+
+                        # Add category from feed config (as ID)
                         main_category_id = WORDPRESS_CATEGORIES.get(category)
                         if main_category_id:
-                            final_category_ids.add(main_category_id)
+                            final_categories.add(main_category_id)
 
-                        # Get AI suggested categories
+                        # Get AI suggested categories (as NAMES)
                         suggested_categories = rewritten_data.get('categorias', [])
                         if suggested_categories and isinstance(suggested_categories, list):
-                            # Expects a list of dicts like [{'nome': 'Barcelona'}, {'nome': 'Champions League'}]
                             suggested_names = [cat['nome'] for cat in suggested_categories if isinstance(cat, dict) and 'nome' in cat]
                             
                             # Normalize category names using aliases
@@ -286,13 +290,10 @@ def run_pipeline_cycle():
                                 normalized_names.append(canonical_name)
                             
                             if suggested_names != normalized_names:
-                                logger.info(f"Normalized category names: {suggested_names} -> {normalized_names}")
-
-                            if normalized_names:
-                                logger.info(f"Resolving AI-suggested category names: {normalized_names}")
-                                dynamic_category_ids = wp_client.resolve_category_names_to_ids(normalized_names)
-                                if dynamic_category_ids:
-                                    final_category_ids.update(dynamic_category_ids)
+                                logger.info(f"Normalized category names for payload: {suggested_names} -> {normalized_names}")
+                            
+                            # Add the names to the set for resolution inside create_post
+                            final_categories.update(normalized_names)
 
                         # Step 4: Add internal links (now in the correct place)
                         if link_map:
@@ -300,7 +301,7 @@ def run_pipeline_cycle():
                             content_html = add_internal_links(
                                 html_content=content_html,
                                 link_map_data=link_map,
-                                current_post_categories=list(final_category_ids)
+                                current_post_categories=list(final_categories)
                             )
 
                         # 5.2: Determine featured media ID to avoid re-upload
@@ -341,13 +342,18 @@ def run_pipeline_cycle():
                         if isinstance(related_kws, list) and related_kws:
                             # Yoast stores this as a JSON string of objects: [{"keyword": "phrase"}, ...]
                             yoast_meta['_yoast_wpseo_keyphrases'] = json.dumps([{"keyword": kw} for kw in related_kws])
+                        
+                        # FIX: Remove problematic Yoast key that causes 403 Forbidden error
+                        if '_yoast_news_keywords' in yoast_meta:
+                            logger.warning("Removing '_yoast_news_keywords' from Yoast meta due to permission error.")
+                            del yoast_meta['_yoast_news_keywords']
 
                         post_payload = {
                             'title': title,
                             'slug': rewritten_data.get('slug'),
                             'content': content_html,
                             'excerpt': rewritten_data.get('meta_description', ''),
-                            'categories': list(final_category_ids),
+                            'categories': list(final_categories),
                             'tags': rewritten_data.get('tags_sugeridas', []),
                             'featured_media': featured_media_id,
                             'meta': yoast_meta,

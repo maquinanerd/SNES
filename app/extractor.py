@@ -257,7 +257,7 @@ def _find_article_body(soup: BeautifulSoup) -> BeautifulSoup:
     candidates = soup.select(
         "article .entry-content, article .content, article [itemprop='articleBody'], "
         ".post-content, .single-content, .post-body, "
-        "[itemprop='articleBody'], .article-body, .article-content, " # Original selectors
+        "[itemprop='articleBody'], .article-body, .article-content" # Original selectors
     )
     if not candidates:
         candidates = soup.find_all(True)
